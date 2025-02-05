@@ -1,0 +1,51 @@
+# version: "2.31"
+services:
+  jobmanager:
+    image: flink:1.18.0-scala_2.12
+    ports:
+      - "8081:8081"
+    command: jobmanager
+    environment:
+      - JOB_MANAGER_RPC_ADDRESS=jobmanager
+
+  taskmanager:
+    image: flink:1.18.0-scala_2.12
+    depends_on:
+      - jobmanager
+    command: taskmanager
+    links:
+      - "jobmanager:jobmanager"
+    environment:
+      - JOB_MANAGER_RPC_ADDRESS=jobmanager
+
+  zookeeper:
+    image: zookeeper:3.8.0
+    restart: always
+    hostname: zookeeper
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: bitnami/kafka:3.3.2
+    environment:
+      KAFKA_ADVERTISED_LISTENERS: INSIDE://:9092,OUTSIDE://:9094
+      KAFKA_LISTENERS: INSIDE://:9092,OUTSIDE://:9094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INSIDE:PLAINTEXT,OUTSIDE:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INSIDE
+      KAFKA_CREATE_TOPICS: "input:2:1, output:2:1"
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+    ports:
+      - 9095:9094
+  
+  atlas-server:
+    build: 
+      context: ./atlas
+      network: host
+    image: lucasmsp/atlas:2.3
+    volumes:
+      - ./atlas/resources/1000-Hadoop:/opt/atlas/models/1000-Hadoop
+    ports:
+      - "21000:21000"
+    depends_on:
+      - "zookeeper"
+      - "kafka" 
